@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  password    String   // hash Argon2
+  role        Role     @default(ANALYST)
+  createdAt   DateTime @default(now())
+  events      Event[]  @relation("EventAssignedToUser")
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  ruleId      String   @unique
+  message     String
+  severity    String?
+  createdAt   DateTime @default(now())
+  events      Event[]
+}
+
+
+model Event {
+  id            String         @id @default(cuid())
+  timestamp     DateTime       @default(now())
+  sourceIp      String
+  destIp        String?
+  uri           String
+  method        String
+  status        Int?
+  wafAction     String         // e.g. "blocked" "allowed"
+  rule          Rule?          @relation(fields: [ruleId], references: [id])
+  ruleId        String?
+  requestDetail RequestDetail?
+  assignedTo    User?          @relation("EventAssignedToUser", fields: [assignedToId], references: [id])
+  assignedToId  String?
+  @@index([timestamp])
+
+  @@index([sourceIp])
+
+  @@index([wafAction])
+
+  @@index([ruleId])
+}
+
+model RequestDetail {
+  id          String   @id @default(cuid())
+  event       Event    @relation(fields: [eventId], references: [id])
+  eventId     String   @unique
+  headers     String   // raw headers text or JSON
+  body        String?  // request body (truncated or hashed)
+  userAgent   String?
+}
